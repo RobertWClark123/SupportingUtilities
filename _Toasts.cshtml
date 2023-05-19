@@ -1,0 +1,23 @@
+﻿<div class="position-fixed top-0 end-0" id="toastContainer">
+    @*floor toast. we have two toasts in case the floor and committees update at the same time*@
+    <div id="floorToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="15000">
+        <div class="toast-header">
+            <strong class="me-auto" id="floorToastTxt"></strong>
+        </div>
+        <div class="toast-body">
+            <button type="button" class="btn btn-primary toastViewBtn" onclick="@("window.location.href='" + @Url.Action("Index", "Livestreams") + "'");">View</button>
+            <button type="button" class="btn btn-secondary toastDismissBtn" data-bs-dismiss="toast" aria-label="Close">Dismiss</button>
+        </div>
+    </div>
+
+    @*committee toast*@
+    <div id="committeeToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="15000">
+        <div class="toast-header">
+            <strong class="me-auto" id="committeeToastTxt"></strong>
+        </div>
+        <div class="toast-body">
+            <button type="button" class="btn btn-primary toastViewBtn" onclick="@("window.location.href='" + @Url.Action("Index", "Livestreams") + "'");">View</button>
+            <button type="button" class="btn btn-secondary toastDismissBtn" data-bs-dismiss="toast" aria-label="Close">Dismiss</button>
+        </div>
+    </div>
+</div>

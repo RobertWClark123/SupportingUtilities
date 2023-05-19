@@ -1,0 +1,55 @@
+﻿@model mga_SupportingUtilities_Lib.ViewModels.ErrorLogViewModel
+
+@using (Html.BeginForm("_Overall", "ErrorLog", FormMethod.Post, new { @class = "form-horizontal", role = "form" }))
+{
+    <div id="tableContainer" class="container-fluid">
+        @if (Model.OverallErrorLog.Count() > 0)
+        {
+            <table id="overallTable" class="table table-striped" role="grid">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Application</th>
+                        <th>User</th>
+                        <th>Message</th>
+                        <th>Stack Trace</th>
+                    </tr>
+                </thead>
+                <tbody class="fullWidthTable">
+                    @foreach (var error in Model.OverallErrorLog)
+                    {
+                        <tr class="errorLogTRs">
+                            <td class="tableCell dateColumn">
+                                <span class="d-none">@Convert.ToDateTime(@error.LogDate).ToString("yyyyMMddHHmmssfff")</span><div class="tableCellDiv">@error.LogDate.ToString("M/d/yyyy h:mm:ss.fff tt")</div>
+                            </td>
+                            <td class="tableCell">
+                                <div class="tableCellDiv">@error.Application</div>
+                            </td>
+                            <td class="tableCell">
+                                <div class="tableCellDiv">@error.UserID</div>
+                            </td>
+                            <td class="tableCell">
+                                <div class="tableCellDiv">@error.FullMessage</div>
+                            </td>
+                            <td class="tableCell">
+                                <div class="tableCellDiv">@error.StackTrace</div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p id="noMatches">No matches.</p>
+        }
+    </div>
+}
+
+<script>
+    $(document).ready(function () {
+        document.getElementById("loadingSpinnerContainer").style.display = "none";
+        loadDatatable("#overallTable", 0, "desc", 'rt<"footer"lp>', 100);
+        document.getElementById("errorLogTable").style.display = "flex";
+    });
+</script>

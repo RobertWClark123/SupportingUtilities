@@ -1,0 +1,102 @@
+﻿<div id="sideMenu" class="collapse-horizontal collapse">
+    <div id="sideMenuChildren">
+        @*<div class="dropdown">
+            <a href="@Url.Action("Index", "Committees")" class="py-2 pe-0">
+                <img src="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/icons/verify.svg" class="sideMenuIcon" />
+                Committee Lists
+            </a>
+        </div>*@
+
+        <div class="dropdown">
+            <a href="@Url.Action("Index", "ErrorLog", new { errorLogSelection = "" })" class="py-2 pe-0">
+                <img src="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/icons/errorlog.svg" class="sideMenuIcon" />
+                Error Logs
+            </a>
+            <div class="dropdown-content">
+                @Html.ActionLink("All", "Index", "ErrorLog", new { errorLogSelection = "" })
+                @Html.ActionLink("Bill Drafting", "Index", "ErrorLog", new { errorLogSelection = "BillDrafting" })
+                @Html.ActionLink("Floor - House", "Index", "ErrorLog", new { errorLogSelection = "House" })
+                @Html.ActionLink("Floor - Senate", "Index", "ErrorLog", new { errorLogSelection = "Senate" })
+                @Html.ActionLink("Generic", "Index", "ErrorLog", new { errorLogSelection = "Generic" })
+                @Html.ActionLink("Global", "Index", "ErrorLog", new { errorLogSelection = "Global" })
+                @Html.ActionLink("MGA Website", "Index", "ErrorLog", new { errorLogSelection = "MGAWebsite" })
+            </div>
+        </div>
+
+        @*<div class="dropdown">
+            <a href="@Url.Action("Index", "FloorSystemMembers", new { selection = "Committees" })" class="py-2 pe-0">
+                <img src="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/icons/floorsystem.svg" class="sideMenuIcon" />
+                Floor System Members
+            </a>
+            <div class="dropdown-content">
+                @Html.ActionLink("Committees", "Index", "FloorSystemMembers", new { selection = "Committees" })
+                @Html.ActionLink("Add", "Index", "FloorSystemMembers", new { selection = "Add" })
+                @Html.ActionLink("Delete", "Index", "FloorSystemMembers", new { selection = "Delete" })
+                @Html.ActionLink("Update", "Index", "FloorSystemMembers", new { selection = "Update" })
+                @Html.ActionLink("Impersonate", "Index", "FloorSystemMembers", new { selection = "Impersonate" })
+            </div>
+        </div>*@
+
+        <div class="dropdown">
+            <a href="@Url.Action("Index", "Livestreams")" class="py-2 pe-0">
+                <img src="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/icons/livestreams.svg" class="sideMenuIcon" />
+                Livestreams
+            </a>
+        </div>
+
+        @if (User.IsInRole("MGA.Roles.SupportingUtilities.Developers"))
+        {
+            <div class="dropdown">
+                <a href="@Url.Action("Index", "Newsletter")" class="py-2 pe-0">
+                    <img src="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/icons/newsletter.svg" class="sideMenuIcon" />
+                    Member Newsletter
+                </a>
+            </div>
+        }
+
+        <div class="dropdown">
+            <a href="@Url.Action("Index", "PasswordLookup", new { passwordLookupSelectedOption = mga_SupportingUtilities_Lib.Enums.PasswordLookup.PasswordLookupEnums.PasswordLookupOptions.FindUser.ToString() })" class="py-2 pe-0">
+                <img src="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/icons/passwordlookup.svg" class="sideMenuIcon" />
+                PasswordLookup
+            </a>
+            @*<div class="dropdown-content">
+                @Html.ActionLink("AddUser", "Index", "PasswordLookup", new { passwordLookupSelectedOption = mga_SupportingUtilities_Lib.Enums.PasswordLookup.PasswordLookupEnums.PasswordLookupOptions.AddUser.ToString() })
+                @Html.ActionLink("DeleteUser", "Index", "PasswordLookup", new { passwordLookupSelectedOption = mga_SupportingUtilities_Lib.Enums.PasswordLookup.PasswordLookupEnums.PasswordLookupOptions.DeleteUser.ToString() })
+                @Html.ActionLink("FindUser", "Index", "PasswordLookup", new { passwordLookupSelectedOption = mga_SupportingUtilities_Lib.Enums.PasswordLookup.PasswordLookupEnums.PasswordLookupOptions.FindUser.ToString() })
+                @Html.ActionLink("ResetUser", "Index", "PasswordLookup", new { passwordLookupSelectedOption = mga_SupportingUtilities_Lib.Enums.PasswordLookup.PasswordLookupEnums.PasswordLookupOptions.ResetUser.ToString() })
+            </div>*@
+        </div>
+
+        <div class="dropdown">
+            <a href="@Url.Action("Index", "PcOverview")" class="py-2 pe-0">
+                <img src="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/icons/pcoverview.svg" class="sideMenuIcon" />
+                PC Overview
+            </a>
+        </div>
+
+        @*@if (User.IsInRole("MGA.Roles.SupportingUtilities.Developers"))
+        {
+            <div class="dropdown">
+                <a href="@Url.Action("Index", "SessionSetup")" class="py-2 pe-0">
+                    <img src="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/icons/sessionsetup.svg" class="sideMenuIcon" />
+                    Session Setup
+                </a>
+            </div>
+        }*@
+
+        @*<div class="dropdown">
+            <a href="@Url.Action("Index", "UserLookup")" class="py-2 pe-0">
+                <img src="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/icons/usersetup.svg" class="sideMenuIcon" />
+                User Management
+            </a>
+            <div class="dropdown-content">
+                @Html.ActionLink("User Lookup", "Index", "UserLookup")
+                @Html.ActionLink("User Setup", "Index", "UserSetup")
+            </div>
+        </div>*@
+    </div>
+
+    <div id="loginPartialDiv">
+        <a class="nav-link pe-2" asp-area="MicrosoftIdentity" asp-controller="Account" asp-action="SignOut">Sign out</a>
+    </div>
+</div>

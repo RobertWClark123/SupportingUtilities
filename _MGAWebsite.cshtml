@@ -1,0 +1,71 @@
+﻿@model mga_SupportingUtilities_Lib.ViewModels.ErrorLogViewModel
+
+@using (Html.BeginForm("_MGAWebsite", "ErrorLog", FormMethod.Post, new { @class = "form-horizontal", role = "form" }))
+{
+    <div id="tableContainer" class="container-fluid">
+        @if (Model.ElmahErrorLog.Count() > 0)
+        {
+            <table id="websiteTable" class="table table-striped table-bordered">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>User</th>
+                        <th>Host</th>
+                        <th>Type</th>
+                        <th>Source</th>
+                        <th>Message</th>
+                        <th>Code</th>
+                        <th data-sortable="false">XML</th>
+                    </tr>
+                </thead>
+                <tbody class="fullWidthTable">
+                    @foreach (var error in Model.ElmahErrorLog)
+                    {
+                        <tr class="errorLogTRs">
+                            <td class="tableCell dateColumn" data-order=@error.Sequence>
+                                <span class="d-none">@Convert.ToDateTime(@error.TimeEst).ToString("yyyyMMddHHmmssfff")</span><div class="tableCellDiv">@error.TimeEst.Value.ToString("M/d/yyyy h:mm:ss.fff tt")</div>
+                            </td>
+                            <td class="tableCell">
+                                <div class="tableCellDiv">@error.User</div>
+                            </td>
+                            <td class="tableCell">
+                                <div class="tableCellDiv">@error.Host</div>
+                            </td>
+                            <td class="tableCell">
+                                <div class="tableCellDiv">@error.Type</div>
+                            </td>
+                            <td class="tableCell">
+                                <div class="tableCellDiv">@error.Source</div>
+                            </td>
+                            <td class="tableCell">
+                                <div class="tableCellDiv">@error.Message</div>
+                            </td>
+                            <td class="tableCell">
+                                <div class="tableCellDiv">@error.StatusCode</div>
+                            </td>
+                            <td class="tableCell">
+                                <div class="xmlBtnContainer">
+                                    <button type="button" class="btn xmlBtn" aria-label="XML" onclick="window.open('@Url.Action("XML", "ErrorLog", new { log = "M", id = @error.Sequence, env = @Model.EnvironmentDropdown.SelectedValue })')">
+                                        <img src="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/icons/view.svg" class="xmlIcon" />
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p id="noMatches">No matches.</p>
+        }
+    </div>
+}
+
+<script>
+    $(document).ready(function () {
+        document.getElementById("loadingSpinnerContainer").style.display = "none";
+        loadDatatable("#websiteTable", 0, "desc", 'rt<"footer"lp>', 100);
+        document.getElementById("errorLogTable").style.display = "flex";
+    });
+</script>

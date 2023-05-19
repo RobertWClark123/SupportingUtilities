@@ -1,0 +1,572 @@
+﻿@model mga_SupportingUtilities_Lib.ViewModels.LivestreamsViewModel
+
+@{
+    ViewData["Title"] = "Livestreams";
+}
+
+@using (Html.BeginForm("Index", "Livestreams", FormMethod.Post, new { @id = "livestreamsIndexForm", @class = "form-horizontal", role = "form", onkeydown = "return event.key != 'Enter'" }))
+{
+    <header>
+        <div id="genericNav" class="navbar navbar-expand-md header-padding navbar-static-top layout-navbar panel-group">
+            <div id="genericNavContainerFluid" class="px-3 container-fluid panel-default">
+
+                <button id="navbarToggler" class="navbar-toggler p-0" type="button" onclick="toggleFilterButton()" data-bs-toggle="collapse" data-bs-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
+                    <img src="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/icons/plus-solid.svg" id="filterCollapseBtn" />
+                    <span id="spanFilter">Filters</span>
+                </button>
+
+                <div id="navbarContent" class="collapse navbar-collapse">
+                    @*<ul class="leftNavbar nav navbar-nav">
+                        <li class="form-inline ps-2 pe-1" id="missingStreamsIconLI">
+                            <img src="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/icons/warning-triangle.svg" id="missingStreamsIcon" />
+                        </li>
+                        <li class="input-group-prepend" id="missingStreamsLI">
+                            <span class="input-group-text leftNavText">Missing Streams</span>
+                        </li>
+                    </ul>*@
+                    <ul class="rightNavbar nav navbar-nav ml-auto justify-content-end">
+                        <li class="input-group-prepend inputGroupPrependRight ps-md-3 pe-md-1">
+                            <span class="input-group-text rightNavText">Source</span>
+                        </li>
+                        <li class="form-inline pe-md-3">
+                            @Html.DropDownListFor(model => model.SourceDropdown.SelectedValue, new SelectList(Model.SourceDropdown.Items, "SelectedValue", "DisplayText", Model.SourceDropdown.SelectedValue), new { @id = "sourceDropdown", @class = "form-select py-0" })
+                        </li>
+
+                        <li class="input-group-prepend inputGroupPrependRight pe-md-1">
+                            <span class="input-group-text rightNavText">Chamber</span>
+                        </li>
+                        <li class="form-inline pe-md-3">
+                            @Html.DropDownListFor(model => model.ChamberDropdown.SelectedValue, new SelectList(Model.ChamberDropdown.Items, "SelectedValue", "DisplayText", Model.ChamberDropdown.SelectedValue), new { @id = "chamberDropdown", @class = "form-select py-0" })
+                        </li>
+
+                        <li class="input-group-prepend inputGroupPrependRight pe-md-1">
+                            <span class="input-group-text rightNavText">Location</span>
+                        </li>
+                        <li class="form-inline genericLivestreamNavControl pe-md-3">
+                            @Html.DropDownListFor(model => model.LocationDropdown.SelectedValue, new SelectList(Model.LocationDropdown.Items, "SelectedValue", "DisplayText", Model.LocationDropdown.SelectedValue), new { @id = "locationDropdown", @class = "form-select py-0" })
+                        </li>
+
+                        <li class="input-group-prepend inputGroupPrependRight checkboxLI">
+                            @Html.CheckBoxFor(model => model.SortByChamber, new { @id = "chamberCheck", @class = "livestreamsCheckbox" })
+                            <span class="pe-md-1 ps-3"></span>
+                            <span id="chamberSortText" class="input-group-text rightNavText">Sort by Chamber</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container-fluid p-0" id="subNavbarDiv">
+        @await Html.PartialAsync("_Streams")
+    </div>
+}
+
+<script type='text/javascript'>
+    var houseFloor = @Model.NumStreamTypes.HouseFloor;
+    var houseCommittee = @Model.NumStreamTypes.HouseCommittee;
+    var senateFloor = @Model.NumStreamTypes.SenateFloor;
+    var senateCommittee = @Model.NumStreamTypes.SenateCommittee;
+    var other = @Model.NumStreamTypes.Other;
+
+    if ("@Model.SortByChamber" == "True") {
+        if (houseFloor + houseCommittee != 0)
+            document.getElementById("houseLivestreamSegment").style.visibility = "visible";
+        if (senateFloor + senateCommittee != 0)
+            document.getElementById("senateLivestreamSegment").style.visibility = "visible";
+        if (other != 0)
+            document.getElementById("otherLivestreamSegment").style.visibility = "visible";
+    }
+
+    fitStreams(); //fit the streams immediately after loading the page
+
+    if (document.getElementById("houseTitle") != null)
+        document.getElementById("houseTitle").innerHTML = "House (" + (houseFloor + houseCommittee) + ")";
+    if (document.getElementById("senateTitle") != null)
+        document.getElementById("senateTitle").innerHTML = "Senate (" + (senateFloor + senateCommittee) + ")";
+    if (document.getElementById("otherTitle") != null)
+        document.getElementById("otherTitle").innerHTML = "Other (" + other + ")";
+
+    new ResizeObserver(fitStreams).observe(document.getElementById('main')); //triggers when changing height or width
+
+    function updateLivestreamNumbers() {
+        var livestreamList = JSON.parse("{}");
+
+        if (containsData("livestreamCommitteeList") && containsData("livestreamFloorList"))
+            livestreamList = JSON.parse(sessionStorage.getItem("livestreamCommitteeList")).concat(JSON.parse(sessionStorage.getItem("livestreamFloorList")));
+        else if (containsData("livestreamFloorList"))
+            livestreamList = JSON.parse(sessionStorage.getItem("livestreamFloorList"));
+        else if (containsData("livestreamCommitteeList"))
+            livestreamList = JSON.parse(sessionStorage.getItem("livestreamCommitteeList"));
+
+        houseFloor = 0;
+        houseCommittee = 0;
+        senateFloor = 0;
+        senateCommittee = 0;
+        other = 0;
+
+        var sourceSelection = document.getElementById("sourceDropdown").options[document.getElementById("sourceDropdown").selectedIndex].text;
+        var chamberSelection = document.getElementById("chamberDropdown").options[document.getElementById("chamberDropdown").selectedIndex].text;
+        var locationSelection = document.getElementById("locationDropdown").options[document.getElementById("locationDropdown").selectedIndex].text;
+
+        for (var i = 0; i < livestreamList.length; i++)
+        {
+            if (livestreamList[i].chamber == 0 && livestreamList[i].streamLocation == 0 && (chamberSelection == "All" || chamberSelection == "House") && (locationSelection == "All" || locationSelection == "Floor Proceedings")) {
+                if (livestreamList[i].youTubeURL !== null && livestreamList[i].youTubeURL.trim() != "" && (sourceSelection == "All" || sourceSelection == "YouTube"))
+                    houseFloor++;
+                if (livestreamList[i].mediasiteURL !== null && livestreamList[i].mediasiteURL.trim() != "" && (sourceSelection == "All" || sourceSelection == "Mediasite"))
+                    houseFloor++;
+            }
+            else if (livestreamList[i].chamber == 0 && livestreamList[i].streamLocation == 1 && (chamberSelection == "All" || chamberSelection == "House") && (locationSelection == "All" || locationSelection == "Committees")) {
+                if (livestreamList[i].youTubeURL !== null && livestreamList[i].youTubeURL.trim() != "" && (sourceSelection == "All" || sourceSelection == "YouTube"))
+                    houseCommittee++;
+                if (livestreamList[i].mediasiteURL !== null && livestreamList[i].mediasiteURL.trim() != "" && (sourceSelection == "All" || sourceSelection == "Mediasite"))
+                    houseCommittee++;
+            }
+            else if (livestreamList[i].chamber == 1 && livestreamList[i].streamLocation == 0 && (chamberSelection == "All" || chamberSelection == "Senate") && (locationSelection == "All" || locationSelection == "Floor Proceedings")) {
+                if (livestreamList[i].youTubeURL !== null && livestreamList[i].youTubeURL.trim() != "" && (sourceSelection == "All" || sourceSelection == "YouTube"))
+                    senateFloor++;
+                if (livestreamList[i].mediasiteURL !== null && livestreamList[i].mediasiteURL.trim() != "" && (sourceSelection == "All" || sourceSelection == "Mediasite"))
+                    senateFloor++;
+            }
+            else if (livestreamList[i].chamber == 1 && livestreamList[i].streamLocation == 1 && (chamberSelection == "All" || chamberSelection == "Senate") && (locationSelection == "All" || locationSelection == "Committees")) {
+                if (livestreamList[i].youTubeURL !== null && livestreamList[i].youTubeURL.trim() != "" && (sourceSelection == "All" || sourceSelection == "YouTube"))
+                    senateCommittee++;
+                if (livestreamList[i].mediasiteURL !== null && livestreamList[i].mediasiteURL.trim() != "" && (sourceSelection == "All" || sourceSelection == "Mediasite"))
+                    senateCommittee++;
+            }
+            else if (livestreamList[i].chamber == 2 && (chamberSelection == "All" || chamberSelection == "Other") && (locationSelection == "All" || locationSelection == "Committees")) {
+                if (livestreamList[i].youTubeURL !== null && livestreamList[i].youTubeURL.trim() != "" && (sourceSelection == "All" || sourceSelection == "YouTube"))
+                    other++;
+                if (livestreamList[i].mediasiteURL !== null && livestreamList[i].mediasiteURL.trim() != "" && (sourceSelection == "All" || sourceSelection == "Mediasite"))
+                    other++;
+            }
+        }
+
+        $("#houseFloorHiddenFor").val(houseFloor);
+        $("#houseCommitteeHiddenFor").val(houseCommittee);
+        $("#senateFloorHiddenFor").val(senateFloor);
+        $("#senateCommitteeHiddenFor").val(senateCommittee);
+        $("#otherHiddenFor").val(other);
+
+        if (document.getElementById("houseTitle") !== null)
+            document.getElementById("houseTitle").innerHTML = "House (" + (houseFloor + houseCommittee) + ")";
+        if (document.getElementById("senateTitle") !== null)
+            document.getElementById("senateTitle").innerHTML = "Senate (" + (senateFloor + senateCommittee) + ")";
+        if (document.getElementById("otherTitle") !== null)
+            document.getElementById("otherTitle").innerHTML = "Other (" + other + ")";
+    }
+
+    function updateGrid(sourceString, oldList) {
+        var newList = JSON.parse("{}");
+        if (containsData(sourceString))
+            newList = JSON.parse(sessionStorage.getItem(sourceString));
+
+        var sourceSelection = document.getElementById("sourceDropdown").options[document.getElementById("sourceDropdown").selectedIndex].text;
+        var chamberSelection = document.getElementById("chamberDropdown").options[document.getElementById("chamberDropdown").selectedIndex].text;
+        var locationSelection = document.getElementById("locationDropdown").options[document.getElementById("locationDropdown").selectedIndex].text;
+
+        for (var i = 0; i < newList.length; i++) { //add new ones if they are found in the new list but not the old one
+            var streamLocation = "";
+
+            if (newList[i].streamLocation == 0)
+                streamLocation = "Floor Proceedings";
+            if (newList[i].streamLocation == 1)
+                streamLocation = "Committees";
+
+            var foundMatch = false;
+
+            if (oldList.length != 0) {
+                for (var j = 0; j < oldList.length; j++) {
+                    if ((oldList[j].mediasiteURL !== null && oldList[j].mediasiteURL.trim() != "" && oldList[j].mediasiteURL.trim() == newList[i].mediasiteURL.trim()) || (oldList[j].youTubeURL !== null && oldList[j].youTubeURL.trim() != "" && oldList[j].youTubeURL.trim() == newList[i].youTubeURL.trim()))
+                        foundMatch = true;
+                }
+            }
+
+            if (foundMatch == false && newList[i].mediasiteURL !== null && newList[i].mediasiteURL.trim() != "" && (sourceSelection == "All" || sourceSelection == "Mediasite")) {
+                var mediasiteDiv = document.createElement("div");
+
+                var innerHTMLString = "<div class='livestreamTitle' title='" + newList[i].title + " (Mediasite)'>" + newList[i].title + " (Mediasite)</div> <iframe class='";
+
+                var urlString = newList[i].mediasiteURL.trim();
+                mediasiteDiv.id = urlString;
+
+                if ("@Model.SortByChamber" == "False") {
+                    mediasiteDiv.className = "iframeContainer";
+                    innerHTMLString += "iframes' src ='" + urlString + "' frameborder = '0' allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' allowfullscreen ></iframe >";
+                    mediasiteDiv.innerHTML = innerHTMLString;
+                    document.getElementById("undividedLivestreamGrid").appendChild(mediasiteDiv);
+                }
+                else if (newList[i].chamber == 0 && (chamberSelection == "All" || chamberSelection == "House") && (locationSelection == "All" || locationSelection == streamLocation)) {
+                    document.getElementById("houseLivestreamSegment").style.visibility = "visible";
+
+                    mediasiteDiv.className = "houseIframeContainer";
+                    innerHTMLString += "houseIframes' src ='" + urlString + "' frameborder = '0' allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' allowfullscreen ></iframe >";
+                    mediasiteDiv.innerHTML = innerHTMLString;
+                    document.getElementById("houseLivestreamGrid").appendChild(mediasiteDiv);
+                }
+                else if (newList[i].chamber == 1 && (chamberSelection == "All" || chamberSelection == "Senate") && (locationSelection == "All" || locationSelection == streamLocation)) {
+                    document.getElementById("senateLivestreamSegment").style.visibility = "visible";
+
+                    mediasiteDiv.className = "senateIframeContainer";
+                    innerHTMLString += "senateIframes' src ='" + urlString + "' frameborder = '0' allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' allowfullscreen ></iframe >";
+                    mediasiteDiv.innerHTML = innerHTMLString;
+                    document.getElementById("senateLivestreamGrid").appendChild(mediasiteDiv);
+                }
+                else if (newList[i].chamber == 2 && (chamberSelection == "All" || chamberSelection == "Other") && (locationSelection == "All" || locationSelection == streamLocation)) {
+                    document.getElementById("otherLivestreamSegment").style.visibility = "visible";
+
+                    mediasiteDiv.className = "otherIframeContainer";
+                    innerHTMLString += "otherIframes' src ='" + urlString + "' frameborder = '0' allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' allowfullscreen ></iframe >";
+                    mediasiteDiv.innerHTML = innerHTMLString;
+                    document.getElementById("otherLivestreamGrid").appendChild(mediasiteDiv);
+                }
+            }
+
+            if (foundMatch == false && newList[i].youTubeURL !== null && newList[i].youTubeURL.trim() != "" && (sourceSelection == "All" || sourceSelection == "YouTube")) { //add it to the grid
+                var youTubeDiv = document.createElement("div");
+
+                var innerHTMLString = "<div class='livestreamTitle' title='" + newList[i].title + " (YouTube)'>" + newList[i].title + " (YouTube)</div> <iframe class='";
+
+                var urlString = newList[i].youTubeURL.trim();
+                youTubeDiv.id = urlString;
+
+                if ("@Model.SortByChamber" == "False") {
+                    youTubeDiv.className = "iframeContainer";
+                    innerHTMLString += "iframes' src ='" + urlString + "' frameborder = '0' allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' allowfullscreen ></iframe >";
+                    youTubeDiv.innerHTML = innerHTMLString;
+                    document.getElementById("undividedLivestreamGrid").appendChild(youTubeDiv);
+                }
+                else if (newList[i].chamber == 0 && (chamberSelection == "All" || chamberSelection == "House") && (locationSelection == "All" || locationSelection == streamLocation)) {
+                    document.getElementById("houseLivestreamSegment").style.visibility = "visible";
+
+                    youTubeDiv.className = "houseIframeContainer";
+                    innerHTMLString += "houseIframes' src ='" + urlString + "' frameborder = '0' allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' allowfullscreen ></iframe >";
+                    youTubeDiv.innerHTML = innerHTMLString;
+                    document.getElementById("houseLivestreamGrid").appendChild(youTubeDiv);
+                }
+                else if (newList[i].chamber == 1 && (chamberSelection == "All" || chamberSelection == "Senate") && (locationSelection == "All" || locationSelection == streamLocation)) {
+                    document.getElementById("senateLivestreamSegment").style.visibility = "visible";
+
+                    youTubeDiv.className = "senateIframeContainer";
+                    innerHTMLString += "senateIframes' src ='" + urlString + "' frameborder = '0' allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' allowfullscreen ></iframe >";
+                    youTubeDiv.innerHTML = innerHTMLString;
+                    document.getElementById("senateLivestreamGrid").appendChild(youTubeDiv);
+                }
+                else if (newList[i].chamber == 2 && (chamberSelection == "All" || chamberSelection == "Other") && (locationSelection == "All" || locationSelection == streamLocation)) {
+                    document.getElementById("otherLivestreamSegment").style.visibility = "visible";
+
+                    youTubeDiv.className = "otherIframeContainer";
+                    innerHTMLString += "otherIframes' src ='" + urlString + "' frameborder = '0' allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' allowfullscreen ></iframe >";
+                    youTubeDiv.innerHTML = innerHTMLString;
+                    document.getElementById("otherLivestreamGrid").appendChild(youTubeDiv);
+                }
+            }
+        }
+
+        for (var i = 0; i < oldList.length; i++) { //remove old ones if they are found in the old list but not the new one
+            var foundMatch = false;
+
+            if (newList.length != 0) {
+                for (var j = 0; j < newList.length; j++) {
+                    if ((oldList[i].mediasiteURL !== null && oldList[i].mediasiteURL.trim() != "" && oldList[i].mediasiteURL.trim() == newList[j].mediasiteURL.trim()) || (oldList[i].youTubeURL !== null && oldList[i].youTubeURL.trim() != "" && oldList[i].youTubeURL.trim() == newList[j].youTubeURL.trim()))
+                        foundMatch = true;
+                }
+            }
+
+            if (foundMatch == false) { //remove it from the grid
+                if (oldList[i].mediasiteURL !== null && oldList[i].mediasiteURL.trim() != "") {
+                    var urlString = oldList[i].mediasiteURL.trim();
+
+                    if (document.getElementById(urlString) !== null)
+                        document.getElementById(urlString).remove();
+                }
+
+                if (oldList[i].youTubeURL !== null && oldList[i].youTubeURL.trim() != "") {
+                    var urlString = oldList[i].youTubeURL.trim();
+
+                    if (document.getElementById(urlString) !== null)
+                        document.getElementById(urlString).remove();
+                }
+            }
+        }
+
+        updateLivestreamNumbers();
+
+        if (houseFloor + houseCommittee == 0 && document.getElementById("houseLivestreamSegment") !== null)
+            document.getElementById("houseLivestreamSegment").style.visibility = "hidden";
+        if (senateFloor + senateCommittee == 0 && document.getElementById("senateLivestreamSegment") !== null)
+            document.getElementById("senateLivestreamSegment").style.visibility = "hidden";
+        if (other == 0 && document.getElementById("otherLivestreamSegment") !== null)
+            document.getElementById("otherLivestreamSegment").style.visibility = "hidden";
+
+        fitStreams(); //chamber segments are made visibile or invisible as necessary above. this will adjust the widths of each segment, if any changes need to be made
+
+        if (houseFloor + houseCommittee + senateFloor + senateCommittee + other == 0) {
+            var livestreamList = ""; //saving this code because you cannot test local streams using GetLivestreams(). remember to uncomment out code in Livestreams post and layout
+
+            if (containsData("livestreamFloorList") && containsData("livestreamCommitteeList")) {
+                var livestreamConcat = JSON.parse(sessionStorage.getItem("livestreamCommitteeList")).concat(JSON.parse(sessionStorage.getItem("livestreamFloorList")));
+                livestreamList = JSON.stringify(livestreamConcat);
+            }
+            else if (containsData("livestreamFloorList"))
+                livestreamList = sessionStorage.getItem("livestreamFloorList");
+            else if (containsData("livestreamCommitteeList"))
+                livestreamList = sessionStorage.getItem("livestreamCommitteeList");
+
+            $("#livestreamListHiddenFor").val(livestreamList);
+
+            submitLivestreamForm();
+        }
+    }
+
+    $("#livestreamsIndexForm").submit(function (e) {
+        e.preventDefault(); //prevent the default form submit. without this, it'll submit twice
+
+        @*var livestreamList = ""; //saving this code because you cannot test local streams using GetLivestreams(). remember to uncomment out code in Livestreams post and layout
+        if (containsData("livestreamFloorList") && containsData("livestreamCommitteeList")) {
+            var livestreamConcat = JSON.parse(sessionStorage.getItem("livestreamCommitteeList")).concat(JSON.parse(sessionStorage.getItem("livestreamFloorList")));
+            livestreamList = JSON.stringify(livestreamConcat);
+        }
+        else if (containsData("livestreamFloorList"))
+            livestreamList = sessionStorage.getItem("livestreamFloorList");
+        else if (containsData("livestreamCommitteeList"))
+            livestreamList = sessionStorage.getItem("livestreamCommitteeList");
+
+        $("#livestreamListHiddenFor").val(livestreamList);
+
+        var serializedForm = $("#livestreamsIndexForm").serialize();
+
+        $.ajax({
+            async: true,
+            method: 'POST',
+            data: serializedForm,
+            url: "@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/Livestreams",
+            success: function (data) {
+                updateLivestreamNumbers();
+                $('#genericNav').html($('#genericNav', data).html()); //update dropdowns with new dropdowns
+                $('#subNavbarDiv').html($('#subNavbarDiv', data).html()); //replace livestreams with new livestreams
+                fitStreams();
+            },
+            error: function (e) {
+                displayError(e);
+            }
+        });*@
+
+        submitLivestreamForm();
+    });
+
+    function submitLivestreamForm() {
+        updateLivestreamNumbers();
+
+        var url = "@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/Livestreams?";
+
+        if (document.getElementById("sourceDropdown").value == "")
+            url += "source=all&";
+        else
+            url += "source=" + document.getElementById("sourceDropdown").value + "&";
+
+        if (document.getElementById("chamberDropdown").value == "")
+            url += "chamber=all&";
+        else
+            url += "chamber=" + document.getElementById("chamberDropdown").value + "&";
+
+        if (document.getElementById("locationDropdown").value == "")
+            url += "location=all&";
+        else
+            url += "location=" + document.getElementById("locationDropdown").value + "&";
+
+        url += "chamberSort=" + document.getElementById("chamberCheck").checked;
+
+        window.location.href = url;
+    }
+
+    function fitStreams() {
+        var windowHeight = document.getElementById("subNavbarDiv").offsetHeight - document.getElementById("genericNav").offsetHeight;
+        var windowWidth = document.getElementById("subNavbarDiv").offsetWidth;
+
+        var bestStreamWidth = 0;
+
+        if (document.getElementById('chamberCheck').checked == false) {
+            bestStreamWidth = getBestStreamWidth(houseFloor + houseCommittee + senateFloor + senateCommittee + other, windowHeight, windowWidth);
+
+            $(".iframes").width(bestStreamWidth);
+            $('.iframes').height(bestStreamWidth * (9 / 16));
+            $(".iframeContainer").width(bestStreamWidth);
+        }
+        else {
+            if (document.getElementsByClassName("livestreamDivisionTitle")[0] != undefined)
+                windowHeight -= document.getElementsByClassName("livestreamDivisionTitle")[0].offsetHeight;
+
+            if (houseFloor + houseCommittee != 0 && senateFloor + senateCommittee != 0 && other != 0) {
+                windowWidth /= 3;
+                $(".livestreamSegment").width("33.333333%");
+            }
+            else if ((houseFloor + houseCommittee != 0 && senateFloor + senateCommittee != 0) || (houseFloor + houseCommittee != 0 && other != 0) || (senateFloor + senateCommittee != 0 && other != 0)) { //divide the screen if exactly two chambers have at least one stream to show
+                windowWidth /= 2; //cut the screen in half
+                if (houseFloor + houseCommittee != 0)
+                    $("#houseLivestreamSegment").width("50%");
+                else
+                    $("#houseLivestreamSegment").width("0%");
+                if (senateFloor + senateCommittee != 0)
+                    $("#senateLivestreamSegment").width("50%");
+                else
+                    $("#senateLivestreamSegment").width("0%");
+                if (other != 0)
+                    $("#otherLivestreamSegment").width("50%");
+                else
+                    $("#otherLivestreamSegment").width("0%");
+            }
+            else {
+                if (houseFloor + houseCommittee != 0)
+                    $("#houseLivestreamSegment").width("100%");
+                else
+                    $("#houseLivestreamSegment").width("0%");
+                if (senateFloor + senateCommittee != 0)
+                    $("#senateLivestreamSegment").width("100%");
+                else
+                    $("#senateLivestreamSegment").width("0%");
+                if (other != 0)
+                    $("#otherLivestreamSegment").width("100%");
+                else
+                    $("#otherLivestreamSegment").width("0%");
+            }
+
+            var locationDropdown = document.getElementById("locationDropdown");
+
+            if (locationDropdown.options[locationDropdown.selectedIndex].text == "All")
+                bestStreamWidth = getBestStreamWidth(houseFloor + houseCommittee, windowHeight, windowWidth);
+            else if (locationDropdown.options[locationDropdown.selectedIndex].text == "Floor Proceedings")
+                bestStreamWidth = getBestStreamWidth(houseFloor, windowHeight, windowWidth);
+            else if (locationDropdown.options[locationDropdown.selectedIndex].text == "Committees")
+                bestStreamWidth = getBestStreamWidth(houseCommittee, windowHeight, windowWidth);
+
+            $(".houseIframes").width(bestStreamWidth);
+            $('.houseIframes').height(bestStreamWidth * (9 / 16));
+            $(".houseIframeContainer").width(bestStreamWidth);
+
+            if (locationDropdown.options[locationDropdown.selectedIndex].text == "All")
+                bestStreamWidth = getBestStreamWidth(senateFloor + senateCommittee, windowHeight, windowWidth);
+            else if (locationDropdown.options[locationDropdown.selectedIndex].text == "Floor Proceedings")
+                bestStreamWidth = getBestStreamWidth(senateFloor, windowHeight, windowWidth);
+            else if (locationDropdown.options[locationDropdown.selectedIndex].text == "Committees")
+                bestStreamWidth = getBestStreamWidth(senateCommittee, windowHeight, windowWidth);
+
+            $(".senateIframes").width(bestStreamWidth);
+            $(".senateIframes").height(bestStreamWidth * (9 / 16));
+            $(".senateIframeContainer").width(bestStreamWidth);
+
+            bestStreamWidth = getBestStreamWidth(other, windowHeight, windowWidth);
+            $(".otherIframes").width(bestStreamWidth);
+            $(".otherIframes").height(bestStreamWidth * (9 / 16));
+            $(".otherIframeContainer").width(bestStreamWidth);
+        }
+
+        //findMissingStreams();
+    }
+
+    function getBestStreamWidth(numStreams, windowHeight, windowWidth) {
+        var bestStreamWidth = 0;
+
+        var titleHeight = 0;
+        if (document.getElementsByClassName("livestreamTitle")[0] != undefined)
+            titleHeight = document.getElementsByClassName("livestreamTitle")[0].offsetHeight + 8; //exagerate the height of the streams a bit to leave some space at the bottom
+
+        for (let numColumns = 1; numColumns <= numStreams; numColumns++) {
+            //x columns, fit to height
+            var numRows = Math.ceil(numStreams / numColumns);
+            var iframeHeight = windowHeight / numRows; //the height of the stream
+            var streamWidth = (iframeHeight - titleHeight) * (16 / 9); //the actual width of the stream
+
+            if ((streamWidth * numColumns) <= windowWidth) //if that size would fit in x columns...
+            {
+                if (bestStreamWidth == 0 || (bestStreamWidth < streamWidth))
+                    bestStreamWidth = streamWidth;
+            }
+
+            //x columns, fit to width
+            streamWidth = windowWidth / numColumns; //the actual width of the stream
+            iframeHeight = (streamWidth * (9 / 16)) + titleHeight; //the width of the stream, plus the bottom padding they all have, plus the height of their title, if any
+
+            if ((iframeHeight * numRows) <= windowHeight) {
+                if (bestStreamWidth == 0 || (bestStreamWidth < streamWidth))
+                    bestStreamWidth = streamWidth;
+            }
+        }
+
+        return bestStreamWidth - 0.25; //we don't want the streams to be the perfect-fitting size, because their sizes cant update fast enough when resizing and will flicker. making them slightly too small gives them plently of time to resize
+    }
+
+    @*function findMissingStreams() {
+        var livestreamList = JSON.parse("{}");
+        if (containsData("livestreamFloorList") && containsData("livestreamCommitteeList"))
+            livestreamList = JSON.parse(sessionStorage.getItem("livestreamCommitteeList")).concat(JSON.parse(sessionStorage.getItem("livestreamFloorList")));
+        else if (containsData("livestreamFloorList"))
+            livestreamList = JSON.parse(sessionStorage.getItem("livestreamFloorList"));
+        else if (containsData("livestreamCommitteeList"))
+            livestreamList = JSON.parse(sessionStorage.getItem("livestreamCommitteeList"));
+
+        document.getElementsByClassName("leftNavbar")[1].style.display = "none"; //remove the "Missing Streams" message, we'll readd it if it's needed
+        $('.missingStream').removeClass('missingStream'); //remove all yellow boxes around videos
+
+        var elements = document.querySelectorAll("img.missingStreamsTitleIcon"); //remove all the yellow triangles in the titles
+        for (var i = 0; i < elements.length; i++) {
+            elements[i].parentNode.removeChild(elements[i]);
+        }
+
+        for (var i = 0; i < livestreamList.length; i++) {
+            if (livestreamList[i].chamber != 2 && !(livestreamList[i].chamber == 1 && livestreamList[i].streamLocation == 1)) { //chamber 1 is senate, chamber 2 is other, location 1 is committee. senate committees are exempted for now, may change later
+                var title = livestreamList[i].title;
+                var foundMatch = false;
+
+                for (var j = 0; j < livestreamList.length; j++) {
+                    if (title == livestreamList[j].title && i != j)
+                        foundMatch = true;
+                }
+
+                if (foundMatch == false && livestreamList[i].youTubeURL != null && livestreamList[i].youTubeURL != "" && document.getElementById(livestreamList[i].youTubeURL) != null) {
+                    document.getElementById(livestreamList[i].youTubeURL).getElementsByTagName('div')[0].innerHTML = "<img src='@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/icons/warning-triangle.svg' class='missingStreamsTitleIcon'/>" + livestreamList[i].title + " (YouTube)";
+                    document.getElementById(livestreamList[i].youTubeURL).getElementsByTagName('iframe')[0].className += " missingStream";
+                    document.getElementsByClassName("leftNavbar")[1].style.display = "inline-flex";
+                }
+                else if (foundMatch == false && livestreamList[i].mediasiteURL != null && livestreamList[i].mediasiteURL != "" && document.getElementById(livestreamList[i].mediasiteURL) != null) {
+                    document.getElementById(livestreamList[i].mediasiteURL).getElementsByTagName('div')[0].innerHTML = "<img src='@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/icons/warning-triangle.svg' class='missingStreamsTitleIcon'/>" + livestreamList[i].title + " (Mediasite)";
+                    document.getElementById(livestreamList[i].mediasiteURL).getElementsByTagName('iframe')[0].className += " missingStream";
+                    document.getElementsByClassName("leftNavbar")[1].style.display = "inline-flex";
+                }
+            }
+        }
+    }*@
+
+    function toggleFilterButton() {
+        if (document.getElementById("navbarToggler").classList.contains('collapsed'))
+            $('#filterCollapseBtn').attr('src', "@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/icons/plus-solid.svg");
+        else
+            $('#filterCollapseBtn').attr('src', "@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/icons/minus-solid.svg");
+    }
+
+    $(document).click((event) => {
+        if (!$(event.target).closest('#genericNav').length && $(window).width() <= 960) {
+            if (document.getElementById("navbarContent").classList.contains('show')) {
+                $('#filterCollapseBtn').attr('src', "@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/icons/plus-solid.svg");
+                $('.collapse').collapse('hide');
+            }
+        }
+    });
+
+    if (document.getElementById('chamberDropdown').value == "Other") //if "Other" is selected when we load the page
+        document.getElementById("locationDropdown").disabled = true;
+
+    $('#sourceDropdown').change(function () {
+        document.getElementById("livestreamsIndexForm").dispatchEvent(new Event('submit'));
+    });
+    $('#chamberDropdown').change(function () {
+        document.getElementById("livestreamsIndexForm").dispatchEvent(new Event('submit'));
+    });
+    $('#locationDropdown').change(function () {
+        document.getElementById("livestreamsIndexForm").dispatchEvent(new Event('submit'));
+    });
+    $('#chamberCheck').change(function () {
+        document.getElementById("livestreamsIndexForm").dispatchEvent(new Event('submit'));
+    });
+</script>

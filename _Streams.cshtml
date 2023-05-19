@@ -1,0 +1,134 @@
+﻿@model mga_SupportingUtilities_Lib.ViewModels.LivestreamsViewModel
+
+@{ string hidden = "visibility: hidden;"; }
+
+@using (Html.BeginForm("_Streams", "Livestreams", FormMethod.Post, new { @class = "form-horizontal", @id = "livestreamsPartial", role = "form" }))
+{
+    @Html.HiddenFor(model => model.LivestreamsJsonString, new { @id = "livestreamListHiddenFor" }) //saving this code because you cannot test local streams using GetLivestreams(). remember to uncomment out code in livestreams post and livestreams submit function
+
+    @Html.HiddenFor(model => model.NumStreamTypes.HouseFloor, new { @id = "houseFloorHiddenFor" })
+    @Html.HiddenFor(model => model.NumStreamTypes.HouseCommittee, new { @id = "houseCommitteeHiddenFor" })
+    @Html.HiddenFor(model => model.NumStreamTypes.SenateFloor, new { @id = "senateFloorHiddenFor" })
+    @Html.HiddenFor(model => model.NumStreamTypes.SenateCommittee, new { @id = "senateCommitteeHiddenFor" })
+    @Html.HiddenFor(model => model.NumStreamTypes.Other, new { @id = "otherHiddenFor" })
+
+    @if (Model.NumStreamTypes.HouseFloor + Model.NumStreamTypes.HouseCommittee + Model.NumStreamTypes.SenateFloor + Model.NumStreamTypes.SenateCommittee + Model.NumStreamTypes.Other > 0)
+    {
+        @if (Model.SortByChamber == false)
+        {
+            <div class="livestreamGrid" id="undividedLivestreamGrid">
+                @foreach (var livestream in Model.Livestreams)
+                {
+                    <div class="iframeContainer" id="@livestream.YouTubeURL@livestream.MediasiteURL">
+                        <div class="livestreamTitle" title="@livestream.Title">@livestream.Title</div>
+
+                        @if (string.IsNullOrWhiteSpace(livestream.YouTubeURL) == false)
+                        {
+                            <iframe class="iframes" src="@livestream.YouTubeURL" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                        }
+                        else if (string.IsNullOrWhiteSpace(livestream.MediasiteURL) == false)
+                        {
+                            <iframe class="iframes" src="@livestream.MediasiteURL" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div id="dividedLivestreamContainer">
+                <div class="livestreamSegment" id="houseLivestreamSegment" style="@if (Model.NumStreamTypes.HouseFloor + Model.NumStreamTypes.HouseCommittee == 0) { @hidden } ">
+                    <div id="houseTitle" class="livestreamDivisionTitle"><strong>House</strong></div>
+                    <div class="livestreamGrid" id="houseLivestreamGrid">
+                        @foreach (var livestream in Model.Livestreams)
+                        {
+                            @if (livestream.Chamber.ToString().Equals("House"))
+                            {
+                                <div class="houseIframeContainer" id="@livestream.YouTubeURL@livestream.MediasiteURL">
+                                    <div class="livestreamTitle" title="@livestream.Title">@livestream.Title</div>
+
+                                    @if (string.IsNullOrWhiteSpace(livestream.YouTubeURL) == false)
+                                    {
+                                        <iframe class="houseIframes" src="@livestream.YouTubeURL" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                                    }
+                                    else if (string.IsNullOrWhiteSpace(livestream.MediasiteURL) == false)
+                                    {
+                                        <iframe class="houseIframes" src="@livestream.MediasiteURL" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                                    }
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+                <div class="livestreamSegment" id="senateLivestreamSegment" style="@if (Model.NumStreamTypes.SenateFloor + Model.NumStreamTypes.SenateCommittee == 0) { @hidden } ">
+                    <div id="senateTitle" class="livestreamDivisionTitle"><strong>Senate</strong></div>
+                    <div class="livestreamGrid" id="senateLivestreamGrid">
+                        @foreach (var livestream in Model.Livestreams)
+                        {
+                            @if (livestream.Chamber.ToString().Equals("Senate"))
+                            {
+                                <div class="senateIframeContainer" id="@livestream.YouTubeURL@livestream.MediasiteURL">
+                                    <div class="livestreamTitle" title="@livestream.Title">@livestream.Title</div>
+
+                                    @if (string.IsNullOrWhiteSpace(livestream.YouTubeURL) == false)
+                                    {
+                                        <iframe class="senateIframes" src="@livestream.YouTubeURL" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                                    }
+                                    else if (string.IsNullOrWhiteSpace(livestream.MediasiteURL) == false)
+                                    {
+                                        <iframe class="senateIframes" src="@livestream.MediasiteURL" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                                    }
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+                <div class="livestreamSegment" id="otherLivestreamSegment" style="@if (Model.NumStreamTypes.Other == 0) { @hidden }">
+                    <div id="otherTitle" class="livestreamDivisionTitle"><strong>Other</strong></div>
+                    <div class="livestreamGrid" id="otherLivestreamGrid">
+                        @foreach (var livestream in Model.Livestreams)
+                        {
+                            @if (livestream.Chamber.ToString().Equals("Other"))
+                            {
+                                <div class="otherIframeContainer" id="@livestream.YouTubeURL@livestream.MediasiteURL">
+                                    <div class="livestreamTitle" title="@livestream.Title">@livestream.Title</div>
+
+                                    @if (string.IsNullOrWhiteSpace(livestream.YouTubeURL) == false)
+                                    {
+                                        <iframe class="otherIframes" src="@livestream.YouTubeURL" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                                    }
+                                    else if (string.IsNullOrWhiteSpace(livestream.MediasiteURL) == false)
+                                    {
+                                        <iframe class="otherIframes" src="@livestream.MediasiteURL" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                                    }
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        if (String.IsNullOrWhiteSpace(Model.SourceDropdown.SelectedValue) && String.IsNullOrWhiteSpace(Model.ChamberDropdown.SelectedValue) && String.IsNullOrWhiteSpace(Model.LocationDropdown.SelectedValue))
+        {
+            <h1 class="display-1 livestreamJumbotron"><strong>Currently, no one is live.</strong></h1>
+        }
+        else
+        {
+            <h1 class="display-1 livestreamJumbotron"><strong>No livestreams found.</strong></h1>
+        }
+    }
+}
+
+<script>
+    document.getElementById('chamberSortText').addEventListener('click', function () {
+        if (document.getElementById('chamberCheck').checked == true)
+            document.getElementById('chamberCheck').checked = false
+        else
+            document.getElementById('chamberCheck').checked = true
+
+        document.getElementById("livestreamsIndexForm").dispatchEvent(new Event('submit'));
+    });
+</script>

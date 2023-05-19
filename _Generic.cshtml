@@ -1,0 +1,67 @@
+﻿@model mga_SupportingUtilities_Lib.ViewModels.ErrorLogViewModel
+
+@using (Html.BeginForm("_Generic", "ErrorLog", FormMethod.Post, new { @class = "form-horizontal", role = "form" }))
+{
+    <div id="tableContainer" class="container-fluid">
+        @if (Model.GenericErrorLog.Count() > 0)
+        {
+            <table id="genericTable" class="table table-striped table-bordered" role="grid">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Application</th>
+                        <th>User</th>
+                        <th>Message</th>
+                        <th>Stack Trace</th>
+                        <th>Custom Information</th>
+                    </tr>
+                </thead>
+                <tbody class="fullWidthTable">
+                    @foreach (var error in Model.GenericErrorLog)
+                    {
+                        <tr class="errorLogTRs">
+                            <td class="tableCell dateColumn" data-order=@error.ID>
+                                <span class="d-none">@Convert.ToDateTime(@error.DateCreated).ToString("yyyyMMddHHmmssfff")</span><div class="tableCellDiv">@error.DateCreated.ToString("M/d/yyyy h:mm:ss.fff tt")</div>
+                            </td>
+                            <td class="tableCell">
+                                <div class="tableCellDiv">@error.Application</div>
+                            </td>
+                            <td class="tableCell">
+                                <div class="tableCellDiv">@error.UserID</div>
+                            </td>
+                            <td class="tableCell">
+                                <div class="tableCellDiv">@error.Message</div>
+                            </td>
+                            <td class="tableCell">
+                                <div class="tableCellDiv">@error.StackTrace</div>
+                            </td>
+                            <td class="tableCell">
+                                <div class="tableCellDiv">@error.CustomInformation</div>
+                            </td>
+                        </tr>
+
+                        //saving popover logic for now, may remove later                        
+                        @*<td class="tableCell">
+                            <div class="popoverText tableCellDiv" data-toggle="popover" data-bs-placement="bottom" data-bs-content="@error.Message" title="Error Message for Error Log ID#@error.ID">@error.Message</div>
+                        </td>
+                        <td class="tableCell">
+                            <div class="popoverText tableCellDiv" data-toggle="popover" data-bs-placement="bottom" data-bs-content="@error.StackTrace" title="StackTrace for Error Log ID#@error.ID">@error.StackTrace</div>
+                        </td>*@
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <p id="noMatches">No matches.</p>
+        }
+    </div>
+}
+
+<script>
+    $(document).ready(function () {
+        document.getElementById("loadingSpinnerContainer").style.display = "none";
+        loadDatatable("#genericTable", 0, "desc", 'rt<"footer"lp>', 100);
+        document.getElementById("errorLogTable").style.display = "flex";
+    });
+</script>

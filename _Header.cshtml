@@ -1,0 +1,26 @@
+﻿<header id="header" class="navbar header-padding navbar-static-top layout-navbar panel-group p-0">
+    <div id="headerContainer" class="container-fluid panel-default px-3">
+        <ul class="leftNavbar nav navbar-collapse me-auto">
+            <button id="toggleSideMenuBtn" class="p-0" type="button" data-bs-toggle="collapse" data-bs-target="#sideMenu" aria-controls="sideMenu" aria-expanded="false" aria-label="Open Side Menu">
+                <img src="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/icons/bars-solid.svg" />
+            </button>
+
+            <div id="logo" class="ps-3">@Html.ActionLink("Supporting Utilities", "Index", "Home")</div>
+        </ul>
+
+        <ul class="rightNavbar nav navbar-nav ml-auto justify-content-end">
+            @if (User.Identity.IsAuthenticated)
+            {
+                <li id="settingsBtnContainer" class="form-inline">
+                    <img id="settingsBtn" src="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/icons/gear.svg" title="Settings" onclick="toggleModal()" />
+                </li>
+            }
+            else
+            {
+                <li>
+                    <a id="signInText" class="nav-link text-light" asp-area="MicrosoftIdentity" asp-controller="Account" asp-action="SignIn">Sign in</a>
+                </li>
+            }
+        </ul>
+    </div>
+</header>

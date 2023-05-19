@@ -1,0 +1,429 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Supporting Utilities"]</title>
+
+    <link rel="stylesheet" href="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/css/site.css" />
+    <link rel="stylesheet" type="text/css" href="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/lib/datatables/css/jquery.dataTables.min.css" />
+    <link rel="stylesheet" type="text/css" href="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/lib/bootstrap/css/bootstrap.min.css" />
+
+    <script src="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/lib/jquery/jquery.min.js"></script>
+    <script src="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/lib/datatables/js/jquery.dataTables.min.js"></script>
+    <script src="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/lib/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/js/supportingutilities.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.1/signalr.js"></script>
+
+    <script>document.documentElement.setAttribute("data-theme", localStorage.getItem("dataTheme"));</script>
+</head>
+
+<body id="supportingUtilitiesBody">
+    <audio id="audio" src="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/audio/livestreamNotification.mp3"></audio>
+
+    <partial name="_Settings" />
+    <partial name="_Toasts" />
+    <partial name="_Header" />
+    <partial name="_SideMenu" />
+
+    <div id="main" class="container-fluid zero-out-padding-horizontal px-0 pb-0">
+        <main role="main">
+            @RenderBody()
+        </main>
+    </div>
+
+    <script>
+        /* Steps for when a livestream push is done:
+         * - New pushes are detected in the two connection.on's at the bottom of Layout.cshtml. They're split into pushes for the committees and pushes for the floor.
+         *      - The livestreams page, the notification ("toast") at the top of each page (except for the livestreams page), and the livestreams card on the home page need to keep track of
+         *        what the most recent lists were. It's more complicated than just taking the new lists.
+         *      - The most recent pushes of each kind, floor and committees, are stored in their own sessionStorage variables. Session storage variables are saved to a tab in the web browser,
+         *        and clear once the tab is closed. They're used when you want a "global" javascript variable. The website won't remember what was live if you reload the page, which is intentional.
+         * - From there, newConnection() is called in Layout.cshtml and passes in the name of the sessionStorage variable along with the jsonstring of the new livestreams.
+         *      - If the incoming push contains no new information, nothing happens at all.
+         *      - If it contains different information, a missing stream or new stream, it displays a notification, so long as you arent looking at the livestreams page.
+         *      - Then, we create a list of the old livestreams and set the sessionStorage variable to the new list.
+         *      - If we're looking at the livestreams page and nothing was live before, we refresh the page. If there's already something live, we update the grid without refreshing the page.
+         *          - If the grid on the livestreams page already has livestreams in it, but we get a new push and nothing is live at all, we refresh the page.
+         *      - Lastly, if we're looking at the homepage, we update the livestreams card. The card displays the title of every stream that is currently live.
+         */
+
+        if (localStorage.getItem("dataTheme") == null) { //if the local storage variable gets deleted, or this computer is signing into the website for the first time
+            document.getElementById("darkModeIcon").style.visibility = "visible";
+            document.getElementById("lightModeIcon").style.visibility = "hidden";
+
+            document.documentElement.setAttribute('data-theme', 'dark');
+            localStorage.setItem("dataTheme", "dark");
+            document.getElementById("dataThemeSwitch").checked = true;
+        }
+        else if (document.documentElement.getAttribute("data-theme") == "dark") {
+            document.getElementById("dataThemeSwitch").checked = true;
+            document.getElementById("darkModeIcon").style.visibility = "visible";
+            document.getElementById("lightModeIcon").style.visibility = "hidden";
+        }
+        else {
+            document.getElementById("dataThemeSwitch").checked = false;
+            document.getElementById("darkModeIcon").style.visibility = "hidden";
+            document.getElementById("lightModeIcon").style.visibility = "visible";
+        }
+
+        function toggleDarkMode() { //sets the colors for each variable name in the root in site.css
+            if (localStorage.getItem("dataTheme") == "default") { //if we're switching from light to dark
+                document.getElementById("darkModeIcon").style.visibility = "visible";
+                document.getElementById("lightModeIcon").style.visibility = "hidden";
+
+                document.documentElement.setAttribute('data-theme', 'dark');
+                localStorage.setItem("dataTheme", "dark");
+                document.getElementById("dataThemeSwitch").checked = true;
+            }
+            else { //if we switch from dark to light
+                document.getElementById("darkModeIcon").style.visibility = "hidden";
+                document.getElementById("lightModeIcon").style.visibility = "visible";
+
+                document.documentElement.setAttribute('data-theme', 'default');
+                localStorage.setItem("dataTheme", "default");
+                document.getElementById("dataThemeSwitch").checked = false;
+            }
+        }
+
+        document.getElementById("audio").volume = localStorage.getItem("livestreamNotificationVolume");
+        document.getElementById("livestreamNotificationRange").value = localStorage.getItem("livestreamNotificationVolume");
+
+        var livestreamListString = ""; //if there's any streams currently live, we need to add them to the session storage on load
+        @*if ("@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)" == "/SupportingUtilities" && window.location.href.includes("/Livestreams"))*@
+            livestreamListString = '@mga_SupportingUtilities_Lib.Classes.Data.LivestreamsData.GetLiveStreamsString(mga_WebAPI_Utils.Classes.Enums.ServerEnvironment.PROD)';
+        @*else
+            livestreamListString = '@mga_SupportingUtilities_Lib.Classes.Data.LivestreamsData.GetLiveStreamsString(mga_WebAPI_Utils.Classes.Enums.ServerEnvironment.DEV)';*@
+
+        livestreamListString = livestreamListString.replace(/&quot;/g, '"');
+        livestreamListString = livestreamListString.replace(/&amp;/g, '&');
+
+        var livestreamList = JSON.parse(livestreamListString);
+
+        if (livestreamList.length != 0) {
+            var floorList = [];
+            var committeeList = [];
+
+            for (var i = 0; i < livestreamList.length; i++) {
+                if (livestreamList[i].StreamLocation == 0) { //0 is floor
+                    if (livestreamList[i].YouTubeURL !== null && livestreamList[i].YouTubeURL.trim() != "") {
+                        floorList.push({
+                            chamber: livestreamList[i].Chamber,
+                            mediasiteURL: "",
+                            streamLocation: livestreamList[i].StreamLocation,
+                            title: livestreamList[i].Title,
+                            youTubeURL: livestreamList[i].YouTubeURL
+                        });
+                    }
+                    if (livestreamList[i].MediasiteURL !== null && livestreamList[i].MediasiteURL.trim() != "") {
+                        floorList.push({
+                            chamber: livestreamList[i].Chamber,
+                            mediasiteURL: livestreamList[i].MediasiteURL,
+                            streamLocation: livestreamList[i].StreamLocation,
+                            title: livestreamList[i].Title,
+                            youTubeURL: ""
+                        });
+                    }
+                }
+                else if (livestreamList[i].StreamLocation == 1) { //1 is committee
+                    if (livestreamList[i].YouTubeURL !== null && livestreamList[i].YouTubeURL.trim() != "") {
+                        committeeList.push({
+                            chamber: livestreamList[i].Chamber,
+                            mediasiteURL: "",
+                            streamLocation: livestreamList[i].StreamLocation,
+                            title: livestreamList[i].Title,
+                            youTubeURL: livestreamList[i].YouTubeURL
+                        });
+                    }
+                    if (livestreamList[i].MediasiteURL !== null && livestreamList[i].MediasiteURL.trim() != "") {
+                        committeeList.push({
+                            chamber: livestreamList[i].Chamber,
+                            mediasiteURL: livestreamList[i].MediasiteURL,
+                            streamLocation: livestreamList[i].StreamLocation,
+                            title: livestreamList[i].Title,
+                            youTubeURL: ""
+                        });
+                    }
+                }
+            }
+
+            for (var i = 0; i < livestreamList.length; i++) { //remove duplicates if we have any
+                for (var j = 0; j < livestreamList.length; j++) {
+                    if (i != j && livestreamList[i].title == livestreamList[j].title && livestreamList[i].chamber == livestreamList[j].chamber && livestreamList[i].streamLocation == livestreamList[j].streamLocation && livestreamList[i].mediasiteURL == livestreamList[j].mediasiteURL && livestreamList[i].youTubeURL == livestreamList[j].youTubeURL) {
+                        livestreamList.splice(i, 1);
+                        i = 0;
+                        j = 0;
+                    }
+                }
+            }
+
+            sessionStorage.setItem("livestreamFloorList", JSON.stringify(floorList));
+            sessionStorage.setItem("livestreamCommitteeList", JSON.stringify(committeeList));
+
+            if (document.getElementById('livestreamWidgetList') !== null) //if we're on the home page
+                updateLivestreamWidget() //update the widget on the homepage. function found in Home > Index.cshtml
+        }
+
+        function newConnection(sourceString, newLivestreamList) { //called when we're receiving a new signalr push
+            var formattedList = [];
+
+            for (var i = 0; i < newLivestreamList.length; i++) {
+                if (newLivestreamList[i].youTubeURL !== null && newLivestreamList[i].youTubeURL.trim() != "") {
+                    formattedList.push({
+                        chamber: newLivestreamList[i].chamber,
+                        mediasiteURL: "",
+                        streamLocation: newLivestreamList[i].streamLocation,
+                        title: newLivestreamList[i].title,
+                        youTubeURL: newLivestreamList[i].youTubeURL
+                    });
+                }
+                if (newLivestreamList[i].mediasiteURL !== null && newLivestreamList[i].mediasiteURL.trim() != "") {
+                    formattedList.push({
+                        chamber: newLivestreamList[i].chamber,
+                        mediasiteURL: newLivestreamList[i].mediasiteURL,
+                        streamLocation: newLivestreamList[i].streamLocation,
+                        title: newLivestreamList[i].title,
+                        youTubeURL: ""
+                    });
+                }
+            }
+
+            for (var i = 0; i < formattedList.length; i++) { //remove duplicates if we have any
+                for (var j = 0; j < formattedList.length; j++) {
+                    if (i != j && formattedList[i].title == formattedList[j].title && formattedList[i].chamber == formattedList[j].chamber && formattedList[i].streamLocation == formattedList[j].streamLocation && formattedList[i].mediasiteURL == formattedList[j].mediasiteURL && formattedList[i].youTubeURL == formattedList[j].youTubeURL) {
+                        formattedList.splice(i, 1);
+                        i = 0;
+                        j = 0;
+                    }
+                }
+            }
+
+            if (isNewListDifferent(sourceString, formattedList)) { //if the list of streams has changed at all
+                if (window.location.href.includes("/Livestreams") == false && formattedList.length != 0) //toasts if we're not on the livestream page
+                    displayLivestreamNotification(sourceString, formattedList); //display the toast
+
+                var oldList = JSON.parse("{}"); //need this for adding streams to grid w/o refreshing
+                if (containsData(sourceString))
+                    oldList = JSON.parse(sessionStorage.getItem(sourceString));
+
+                sessionStorage.setItem(sourceString, JSON.stringify(formattedList)); //put the new list in session storage AFTER we display the notification, if there was one
+
+                if (window.location.href.includes("/Livestreams")) { //update the screen if we're looking at livestreams
+                    if (document.getElementById('dividedLivestreamContainer') === null && document.getElementById('undividedLivestreamGrid') === null) { //if we havent displayed any streams at all yet, or we arent supposed to show any streams at all
+                        var livestreamList = "";
+                        if (containsData("livestreamFloorList") && containsData("livestreamCommitteeList")) {
+                            var livestreamConcat = JSON.parse(sessionStorage.getItem("livestreamCommitteeList")).concat(JSON.parse(sessionStorage.getItem("livestreamFloorList")));
+                            livestreamList = JSON.stringify(livestreamConcat);
+                        }
+                        else if (containsData("livestreamFloorList"))
+                            livestreamList = sessionStorage.getItem("livestreamFloorList");
+                        else if (containsData("livestreamCommitteeList"))
+                            livestreamList = sessionStorage.getItem("livestreamCommitteeList");
+
+                        $("#livestreamListHiddenFor").val(livestreamList);
+
+                        $(document).ready(function () {
+                            submitLivestreamForm(); //if you just call a form.submit, it'll do an HttpPost. we want to use an href to refresh.
+                        });
+                    }
+                    else //if we can already see some livestreams
+                        updateGrid(sourceString, oldList);
+
+                    updateLivestreamNumbers();
+                    fitStreams();
+                }
+
+                if (document.getElementById('livestreamWidgetList') !== null) //if we're on the home page
+                    updateLivestreamWidget() //update the widget on the homepage. function found in Home > Index.cshtml
+            }
+        }
+
+        function isNewListDifferent(sourceString, newLivestreamList) { //check if our current livestream list matches the incoming one. returns false if there's new ones or streams have gone offline
+            var isDifferent = false;
+
+            var livestreamList = JSON.parse("{}");
+            if (containsData(sourceString))
+                livestreamList = JSON.parse(sessionStorage.getItem(sourceString));
+
+            if (livestreamList.length == 0 || livestreamList.length != newLivestreamList.length) //if we dont have any list set, or the old and new lists arent even the same size
+                isDifferent = true; //we already know that they dont match
+
+            if (isDifferent == false) { //if we still don't know, we need to compare each one
+                for (var i = 0; i < livestreamList.length; i++) { //find the matching stream to each one in the old list
+                    var foundMatch = false;
+
+                    for (var j = 0; j < newLivestreamList.length; j++) {
+                        if ((livestreamList[i].mediasiteURL.trim() != "" && livestreamList[i].mediasiteURL.trim() == newLivestreamList[j].mediasiteURL.trim()) || (livestreamList[i].youTubeURL.trim() != "" && livestreamList[i].youTubeURL.trim() == newLivestreamList[j].youTubeURL.trim()))
+                            foundMatch = true;
+                    }
+
+                    if (foundMatch == false)
+                        isDifferent = true;
+                }
+
+                for (var i = 0; i < newLivestreamList.length; i++) { //find the matching stream to each one in the new list
+                    var foundMatch = false;
+
+                    for (var j = 0; j < livestreamList.length; j++) {
+                        if ((livestreamList[j].mediasiteURL.trim() != "" && newLivestreamList[i].mediasiteURL.trim() == livestreamList[j].mediasiteURL.trim()) || (livestreamList[j].youTubeURL.trim() != "" && livestreamList[j].youTubeURL.trim() == newLivestreamList[i].youTubeURL.trim()))
+                            foundMatch = true;
+                    }
+
+                    if (foundMatch == false)
+                        isDifferent = true;
+                }
+            }
+
+            return isDifferent;
+        }
+
+        function displayLivestreamNotification(sourceString, newLivestreamList) { //constructs a new notification, a toast, based on what new livestreams have just gone live and then displays the notification
+            var notificationText = ""; //will become the text that displays in the toast (Ex: "House Floor and Senate Budget & Taxation Committee have gone live.")
+            var newStreams = []; //an array of all the streams that are new. we only care about new streams being added
+
+            var oldList = JSON.parse("{}");
+            if (containsData(sourceString))
+                oldList = JSON.parse(sessionStorage.getItem(sourceString));
+
+            if (oldList.length != 0) {
+                for (var i = 0; i < newLivestreamList.length; i++) { //if we find a stream that is in the new list but isnt in the old one, add it to the array
+                    var foundMatch = false;
+
+                    for (var j = 0; j < oldList.length; j++) { //create a list of all new streams. we can ignore the other list in session storage. if we didnt get a new push, it hasnt changed
+                        if (newLivestreamList[i].title.trim() == oldList[j].title.trim())
+                            foundMatch = true;
+                    }
+
+                    if (foundMatch == false && newStreams.includes(newLivestreamList[i].title) == false)
+                        newStreams.push(newLivestreamList[i].title);
+                }
+            }
+            else { //if there werent any streams live before we got the push
+                for (var i = 0; i < newLivestreamList.length; i++) {//just add all livestream titles to the array
+                    if (newStreams.includes(newLivestreamList[i].title) == false)
+                        newStreams.push(newLivestreamList[i].title);
+                }
+            }
+
+            if (newStreams.length == 1) //construct the text of the notification based on if we have 1, 2, or 3+ new streams
+                notificationText = newStreams[0] + " has gone live.";
+            else if (newStreams.length == 2)
+                notificationText = newStreams[0] + " and " + newStreams[1] + " have gone live.";
+            else if (newStreams.length != 0) {
+                for (var i = 0; i < newStreams.length; i++) {
+                    notificationText += newStreams[i];
+                    if (i == newStreams.length - 2)
+                        notificationText += ", and ";
+                    else if (i != newStreams.length - 1)
+                        notificationText += ", ";
+                }
+                notificationText += " have gone live.";
+            }
+
+            if (notificationText != "") {
+                document.getElementById("audio").play(); //play a beep
+
+                if (sourceString == "livestreamFloorList") {
+                    document.getElementById("floorToastTxt").innerHTML = notificationText;
+                    $("#floorToast").toast("show");
+                }
+                else if (sourceString == "livestreamCommitteeList") {
+                    document.getElementById("committeeToastTxt").innerHTML = notificationText;
+                    $("#committeeToast").toast("show");
+                }
+            }
+        }
+
+        function changeVolume(volume) {
+            document.getElementById("audio").pause();
+            document.getElementById("audio").currentTime = 0;
+            document.getElementById("audio").volume = volume;
+            localStorage.setItem("livestreamNotificationVolume", volume);
+            document.getElementById("audio").play();
+        }
+
+        function toggleModal() {
+            if (document.getElementById("settingsMenu").style.display == "block")
+                $('#settingsMenu').modal('hide');
+            else
+                $('#settingsMenu').modal('show');
+        }
+
+        window.onclick = function (e) { //close the settings menu or the sidemenu by clicking outside of them
+            if (!$(e.target).closest('#settingsBtn').length && !$(e.target).is('#settingsBtn') && !$(e.target).closest('#settingsMenu').length && !$(e.target).is('#settingsMenu'))
+                $('#settingsMenu').modal('hide');
+            if (!$(e.target).closest('#sideMenu').length && !$(e.target).is('#sideMenu') && document.getElementById("sideMenu").classList.contains('show'))
+                $('.collapse').collapse('hide');
+        }
+
+        $(document).ready(function () {
+            /* Having issues connecting locally?
+            * 1) Go to SignalRHub in Devops and pull down both SignalRHub-SignalRClient and SignalRHub-SignalRHub
+            * 2) Open both in Visual Studio, and switch both to "feature/wall-display"
+            * 3) In Hub, go to Startup.cs and set withorigins to "https://localhost:{local port number for Supporting Utilities website}"
+            * 4) Open solution explorer in Client, click the carrot next to MainWindow.xaml, open MainWindow.xaml.cs, and set .WithUrl(...) to "https://localhost:{local port number for hub}/LiveMediaHub"
+            * 5) A few lines down in this file, _Layout.cshtml, change the .withUrl under the else statement to "https://localhost:{local port number for hub}/LiveMediaHub"
+            * 6) Run both the hub and the client locally.
+            * 7) In the client, hit connect (you only need to do this once, even if you close the website). Hit "send" whenever you want to show/change the livestreams
+            */
+
+            var connection; //dev site points to prod livestreams for testing
+
+            //connection = new signalR.HubConnectionBuilder()
+            //    .withUrl("https://localhost:44394/LiveMediaHub", { //how to connect locally. robc desktop is 44394, robc laptop is 44374, remember to uncomment out code in livestreams post and livestreams index
+            //        useDefaultPath: false
+            //    })
+            //    .withAutomaticReconnect()
+            //    .build();
+
+            if (window.location.hostname == "localhost" || "@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)" == "/SupportingUtilitiesDev") {
+                connection = new signalR.HubConnectionBuilder()
+                    .withUrl("https://webapi-prod/SignalRHub/LiveMediaHub", {
+                        useDefaultPath: false
+                    })
+                    .withAutomaticReconnect()
+                    .build();
+            }
+            else {
+                connection = new signalR.HubConnectionBuilder()
+                    .withUrl("https://webapi-prod/SignalRHub/LiveMediaHub", {
+                        useDefaultPath: false
+                    })
+                    .withAutomaticReconnect()
+                    .build();
+            }
+
+            async function start() {
+                try {
+                    await connection.start();
+                } catch (e) {
+                    //if (window.location.hostname != "localhost")
+                    //    alert("Can't display livestreams. Please contact OIS.\n\n" + e);
+                    //else
+                    //    alert("Can't connect locally. Open Views\\Shared\\Layout.cshtml and CTRL + f 'Having issues connecting locally?'.\n\n" + e);
+                    setTimeout(start, 20000);
+                }
+            };
+
+            connection.onclose(async () => {
+                await start();
+                //alert("Connection with livestreams has disconnected. Please contact OIS.\n\n" + connection.state);
+            });
+
+            connection.on("SupportingUtilitiesWebsite-Floor", (newLivestreamList) => {
+                newConnection("livestreamFloorList", newLivestreamList);
+            });
+
+            connection.on("SupportingUtilitiesWebsite-Committees", (newLivestreamList) => {
+                newConnection("livestreamCommitteeList", newLivestreamList);
+            });
+
+            start(); //Start the connection. this should be called after all the other signalr connection.on's
+        });
+    </script>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

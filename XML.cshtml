@@ -1,0 +1,125 @@
+﻿@model mga_SupportingUtilities_Lib.ViewModels.ErrorLogViewModel
+
+@using (Html.BeginForm("XML", "ErrorLog", FormMethod.Post, new { id = "xmlForm", @class = "form-horizontal", role = "form" }))
+{
+    <div id="jumbotron" class="bg-transparent">
+        <h1 id="jumbotronH1" class="display-1"><strong>@Model.XMLLog Error #@Model.XMLID</strong></h1>
+        <div class="me-5 mt-4" style="position: absolute; right: 0;">
+            <img src="@SupportingUtilitiesWebsite.Classes.Globals.GetHostName(Context.Request.Host.Value)/icons/copy.svg" class="jumbotronIcon" title="Click to copy XML" onclick="copyXML()" />
+        </div>
+    </div>
+
+    <hr id="titleSeperator" class="titleSeperator m-0" />
+
+    <div id="xmlDiv">
+        <pre class='brush: xml;' id="xmlBrush" style="tab-size: 2;"></pre>
+    </div>
+}
+
+<script>
+    formatXML(); //format the xml on load
+    fitDiv(); //fit the xml's div to the screen
+
+    new ResizeObserver(formatXML).observe(document.getElementById("main")); //triggers when changing height or width
+    new ResizeObserver(fitDiv).observe(document.getElementById("main")); //triggers when changing height or width
+
+    function formatXML() {
+        var xml = "@Model.XML"; //get the xml string from the viewmodel. this string will contain string literals for characters like <, &, ", etc
+
+        xml = xml.replace(/&#xD;&#xA;/g, "\r\n"); //do the carriage returns first. carriage returns written into the actual string are respresented in javascript as "&amp;#xD;&amp;#xA;", and we want to deal with those later in a more complicated way
+        xml = xml.replace(/&amp;/g, '&'); //do the ampersands second
+        xml = xml.replace(/&quot;/g, '"'); //replace all the other string literals. this may not be a comprehensive list.
+        xml = xml.replace(/&gt;/g, '>');
+        xml = xml.replace(/&lt;/g, '<');
+        xml = xml.replace(/&#x27;/g, '\'');
+
+        var currentLocation = 0;
+        var numSpacing = 0; //the number of spaces that this line has in front of it. if the left of this line has four spaces, then numSpacing for that line = 4
+        var newNumSpacing = 0;
+        var charWidth = parseInt(window.getComputedStyle(document.getElementById("xmlBrush")).fontSize) * .62; //the font is monospace and its characters all have a height/width ratio of 17/6
+
+        var charLimit = Math.floor(document.getElementById("xmlForm").offsetWidth / charWidth); //how many characters can fit on the screen from left to right. depends on the screen size
+
+        while (xml.length - currentLocation > charLimit) { //if the number of characters remaining is smaller than the character limit, we can just stop
+            var lastBreakPoint = 0; //the last break point is the farthest we can go on this line in order to break cleanly. basically, how far do we have to go to find a space?
+
+            if (xml.indexOf("&#xD;&#xA;", currentLocation) < xml.indexOf("\r\n", currentLocation) && ((xml.indexOf("&#xD;&#xA;", currentLocation) - currentLocation) < (charLimit - numSpacing)) && xml.indexOf("&#xD;&#xA;", currentLocation) != -1) { //if theres a javascript carriage return between here and the end of the current line
+                currentLocation = xml.indexOf("&#xD;&#xA;", currentLocation);
+
+                xml = xml.slice(0, currentLocation) + "\r\n" + xml.slice(currentLocation + 10); //remove it and replace it with a normal carriage return
+
+                currentLocation += 2; //set the current position to the character after the carriage return
+
+                while (xml.charAt(currentLocation) == ' ') { //remove the spaces that they sometimes leave after the carriage returns
+                    xml = xml.slice(0, currentLocation) + xml.slice(currentLocation + 1);
+                }
+
+                newNumSpacing = numSpacing;
+
+                while (newNumSpacing > 0) {
+                    newNumSpacing--;
+                    xml = xml.slice(0, currentLocation) + " " + xml.slice(currentLocation);
+                    currentLocation++;
+                }
+
+                xml = xml.slice(0, currentLocation) + "    " + xml.slice(currentLocation); //add an extra 2 tabs at the front of every added line
+
+                currentLocation += 4;
+
+                continue; //go back to the top of the while loop
+            }
+            else if((xml.indexOf("\r\n", currentLocation) - currentLocation) > (charLimit - numSpacing)) { //if the next carriage return is too many characters after the character limit (minus this line's white space on the left)
+                var brokeLine = false; //if we have one long word/string whose width is longer than the maximum width of a line, ie we can't cleanly break anywhere, then we just have to break at the nth letter of that word
+
+                for (var i = 0; i < charLimit - numSpacing; i++) { //keep examining the line until we find the farthest space, or we get to our character limit
+                    if (xml.charAt(i + currentLocation) == ' ') { //currentLocation is the beginning of the current line
+                        lastBreakPoint = i + currentLocation;
+                        brokeLine = true;
+                    }
+                }
+
+                if (brokeLine == false) //calculate the last break point's position based on if we found a good place to break or not
+                    lastBreakPoint = currentLocation + charLimit - numSpacing;
+                else
+                    lastBreakPoint++;
+
+                xml = xml.slice(0, lastBreakPoint) + "\r\n" + xml.slice(lastBreakPoint); //if we need to break at a space, or need to break at the very end of the line, just add a carriage return on the spot
+
+                currentLocation = lastBreakPoint + 2; //set the current location to the space after the carriage return
+
+                newNumSpacing = numSpacing;
+
+                while (newNumSpacing > 0) {
+                    newNumSpacing--;
+                    xml = xml.slice(0, currentLocation) + " " + xml.slice(currentLocation);
+                    currentLocation++;
+                }
+
+                xml = xml.slice(0, currentLocation) + "    " + xml.slice(currentLocation); //add an extra 2 tabs at the front of every added line
+
+                currentLocation += 4;
+            }
+            else {
+                currentLocation = xml.indexOf("\r\n", currentLocation) + 2; //indexOf tells you the location of the first character in the substring. current location = index of + lenth of string
+                numSpacing = 0;
+
+                while (xml.charAt(currentLocation) == ' ') {
+                    currentLocation++;
+                    numSpacing++;
+                }
+            }
+        }
+
+        xml = xml.replace(/&#xD;&#xA;/g, "\r\n"); //format the last few carriage returns at the bottom of the page
+
+        document.getElementById("xmlBrush").innerHTML = "<xmp>" + xml + "</xmp>";
+    }
+
+    function fitDiv() {
+        document.getElementById("xmlDiv").style.height = document.getElementById("main").offsetHeight - (document.getElementById("jumbotron").offsetHeight + 20) + "px";
+    }
+
+    function copyXML() {
+        navigator.clipboard.writeText($("<span />", { html: "@Model.XML" }).text()); //ensuring string is returned with symbols written correctly, like "<" instead of "&lt;"
+    }
+</script>
